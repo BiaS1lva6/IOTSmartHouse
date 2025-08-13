@@ -22,36 +22,36 @@ O objetivo é controlar três ambientes — **Garagem**, **Sala** e **Quarto** �
 
 | Tópico | Operação | Descrição | Payloads Aceitos | Exemplo |
 |--------|----------|-----------|------------------|---------|
-| `casa/garagem/luz` | Assinar | Liga/desliga a luz da garagem | ON / OFF | ON |
-| `casa/garagem/luz/status` | Publicar | Informa o estado atual da luz da garagem | ON / OFF | OFF |
-| `casa/garagem/portao/social` | Assinar | Abre/fecha o portão social | ABRIR / FECHAR | ABRIR |
-| `casa/garagem/portao/social/status` | Publicar | Estado do portão social | ABERTO / FECHADO | ABERTO |
-| `casa/garagem/portao/basculante` | Assinar | Abre/fecha o portão basculante | ABRIR / FECHAR | FECHAR |
-| `casa/garagem/portao/basculante/status` | Publicar | Estado do portão basculante | ABERTO / FECHADO | FECHADO |
+| `BLhouse3604/garagem/luz` | Assinar | Liga/desliga a luz da garagem | ON / OFF | ON |
+| `BLhouse3604/garagem/luz/status` | Publicar | Informa o estado atual da luz da garagem | ON / OFF | OFF |
+| `BLhouse3604/garagem/portao/social` | Assinar | Abre/fecha o portão social | ABRIR / FECHAR | ABRIR |
+| `BLhouse3604/garagem/portao/social/status` | Publicar | Estado do portão social | ABERTO / FECHADO | ABERTO |
+| `BLhouse3604/garagem/portao/basculante` | Assinar | Abre/fecha o portão basculante | ABRIR / FECHAR | FECHAR |
+| `BLhouse3604/garagem/portao/basculante/status` | Publicar | Estado do portão basculante | ABERTO / FECHADO | FECHADO |
 
 ### 🛋️ Sala
 
 | Tópico | Operação | Descrição | Payloads Aceitos | Exemplo |
 |--------|----------|-----------|------------------|---------|
-| `casa/sala/luz` | Assinar | Liga/desliga a luz da sala | ON / OFF | ON |
-| `casa/sala/luz/status` | Publicar | Estado da luz da sala | ON / OFF | OFF |
-| `casa/sala/ar` | Assinar | Liga/desliga o ar-condicionado | ON / OFF | ON |
-| `casa/sala/ar/status` | Publicar | Estado do ar-condicionado | ON / OFF | OFF |
-| `casa/sala/umidificador` | Assinar | Liga/desliga o umidificador | ON / OFF | OFF |
-| `casa/sala/umidificador/status` | Publicar | Estado do umidificador | ON / OFF | ON |
-| `casa/sala/temperatura` | Publicar | Temperatura lida pelo DHT22 | valor numérico (xx.xx) | 27.50 |
-| `casa/sala/umidade` | Publicar | Umidade lida pelo DHT22 | valor numérico (xx.xx) | 55.20 |
+| `BLhouse3604/sala/luz` | Assinar | Liga/desliga a luz da sala | ON / OFF | ON |
+| `BLhouse3604/sala/luz/status` | Publicar | Estado da luz da sala | ON / OFF | OFF |
+| `BLhouse3604/sala/ar` | Assinar | Liga/desliga o ar-condicionado | ON / OFF | ON |
+| `BLhouse3604/sala/ar/status` | Publicar | Estado do ar-condicionado | ON / OFF | OFF |
+| `BLhouse3604/sala/umidificador` | Assinar | Liga/desliga o umidificador | ON / OFF | OFF |
+| `BLhouse3604/sala/umidificador/status` | Publicar | Estado do umidificador | ON / OFF | ON |
+| `BLhouse3604/sala/temperatura` | Publicar | Temperatura lida pelo DHT22 | valor numérico (xx.xx) | 27.50 |
+| `BLhouse3604/sala/umidade` | Publicar | Umidade lida pelo DHT22 | valor numérico (xx.xx) | 55.20 |
 
 ### 🛏️ Quarto
 
 | Tópico | Operação | Descrição | Payloads Aceitos | Exemplo |
 |--------|----------|-----------|------------------|---------|
-| `casa/quarto/luz` | Assinar | Liga/desliga a luz do quarto | ON / OFF | ON |
-| `casa/quarto/luz/status` | Publicar | Estado da luz do quarto | ON / OFF | OFF |
-| `casa/quarto/tomada` | Assinar | Liga/desliga a tomada do quarto | ON / OFF | ON |
-| `casa/quarto/tomada/status` | Publicar | Estado da tomada | ON / OFF | OFF |
-| `casa/quarto/cortina` | Assinar | Abre/fecha a cortina | ABRIR / FECHAR | ABRIR |
-| `casa/quarto/cortina/status` | Publicar | Estado da cortina | ABRINDO / FECHANDO / IDLE | IDLE |
+| `BLhouse3604/quarto/luz` | Assinar | Liga/desliga a luz do quarto | ON / OFF | ON |
+| `BLhouse3604/quarto/luz/status` | Publicar | Estado da luz do quarto | ON / OFF | OFF |
+| `BLhouse3604/quarto/tomada` | Assinar | Liga/desliga a tomada do quarto | ON / OFF | ON |
+| `BLhouse3604/quarto/tomada/status` | Publicar | Estado da tomada | ON / OFF | OFF |
+| `BLhouse3604/quarto/cortina` | Assinar | Abre/fecha a cortina | ABRIR / FECHAR | ABRIR |
+| `BLhouse3604/quarto/cortina/status` | Publicar | Estado da cortina | ABRINDO / FECHANDO / IDLE | IDLE |
 
 ## 3. Guia de Uso dos Endpoints
 
@@ -61,15 +61,15 @@ O objetivo é controlar três ambientes — **Garagem**, **Sala** e **Quarto** �
    - Porta: 1883 (TCP)
 
 2. **Ligar LED da sala**
-   - Tópico: `casa/sala/luz`
+   - Tópico: `BLhouse3604/sala/luz`
    - Mensagem: `ON`
 
 3. **Abrir portão social**
-   - Tópico: `casa/garagem/portao/social`
+   - Tópico: `BLhouse3604/garagem/portao/social`
    - Mensagem: `ABRIR`
 
 4. **Receber dados do sensor DHT22**
-   - Inscrever-se no tópico: `casa/sala/temperatura`
+   - Inscrever-se no tópico: `BLhouse3604/sala/temperatura`
    - Exemplo de retorno: `27.50`
 
 ## 4. Esquema de Ligação Elétrica
