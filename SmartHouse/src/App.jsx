@@ -1,5 +1,3 @@
-
-
 import { useState, useCallback, useEffect } from "react"
 
 function App() {
@@ -7,7 +5,7 @@ function App() {
   const [isConnected, setIsConnected] = useState(false)
   const [client, setClient] = useState(null)
   const [logs, setLogs] = useState([])
-  const [mqttLoaded, setMqttLoaded] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState("Desconectado")
 
   // Estados dos sensores
   const [sensorData, setSensorData] = useState({
@@ -35,17 +33,78 @@ function App() {
   })
 
   useEffect(() => {
-    const script = document.createElement("script")
-    script.src = "https://unpkg.com/paho-mqtt@1.1.0/paho-mqtt.js"
-    script.onload = () => {
-      setMqttLoaded(true)
+    // Carregar Paho MQTT
+    const loadPahoMQTT = () => {
+      // Verificar se já está carregado
+      if (window.Paho && window.Paho.MQTT) {
+        console.log("Paho MQTT já disponível")
+        setTimeout(connectMQTT, 1000)
+        return
+      }
+
+      // Tentar carregar via CDN principal
+      const script = document.createElement("script")
+      script.src = "https://unpkg.com/paho-mqtt@1.1.0/paho-mqtt.js"
+
+      script.onload = () => {
+        console.log("✅ Paho MQTT carregado com sucesso")
+        addLog("✅ Biblioteca Paho MQTT carregada", "system")
+        // Aguardar um pouco para garantir que está disponível
+        setTimeout(() => {
+          if (window.Paho && window.Paho.MQTT) {
+            connectMQTT()
+          } else {
+            addLog("❌ Paho MQTT carregado mas não disponível", "system")
+            tryAlternativeCDN()
+          }
+        }, 1500)
+      }
+
+      script.onerror = () => {
+        console.error("❌ Erro ao carregar Paho MQTT do CDN principal")
+        addLog("❌ Erro ao carregar do CDN principal, tentando alternativo...", "system")
+        tryAlternativeCDN()
+      }
+
+      document.head.appendChild(script)
     }
-    document.head.appendChild(script)
+
+    // Função para tentar CDN alternativo
+    const tryAlternativeCDN = () => {
+      const altScript = document.createElement("script")
+      altScript.src = "https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"
+
+      altScript.onload = () => {
+        console.log("✅ Paho MQTT alternativo carregado")
+        addLog("✅ Biblioteca MQTT alternativa carregada", "system")
+        setTimeout(() => {
+          if (window.Paho && window.Paho.MQTT) {
+            connectMQTT()
+          } else {
+            addLog("❌ Falha total no carregamento do MQTT", "system")
+            setConnectionStatus("Erro: Biblioteca MQTT não disponível")
+          }
+        }, 1000)
+      }
+
+      altScript.onerror = () => {
+        addLog("❌ Falha em todos os CDNs do MQTT", "system")
+        setConnectionStatus("Erro: Não foi possível carregar MQTT")
+      }
+
+      document.head.appendChild(altScript)
+    }
+
+    loadPahoMQTT()
 
     return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script)
-      }
+      // Cleanup scripts
+      const scripts = document.querySelectorAll('script[src*="paho-mqtt"], script[src*="mqttws31"]')
+      scripts.forEach((script) => {
+        if (document.head.contains(script)) {
+          document.head.removeChild(script)
+        }
+      })
     }
   }, [])
 
@@ -54,76 +113,232 @@ function App() {
     const timestamp = new Date().toLocaleTimeString()
     setLogs((prev) => [
       {
-        id: Date.now(),
+        id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         timestamp,
         message,
         type,
       },
       ...prev.slice(0, 49),
-    ]) // Manter apenas os últimos 50 logs
+    ])
   }, [])
 
   const connectMQTT = useCallback(() => {
-    if (!mqttLoaded || !window.Paho) {
-      addLog("Biblioteca MQTT não carregada", "system")
+    if (!window.Paho) {
+      addLog("❌ Objeto Paho não encontrado", "system")
+      setConnectionStatus("Erro: Paho não disponível")
       return
     }
 
-    const clientId = `dashboard_${Math.random().toString(16).substr(2, 8)}`
-    const mqttClient = new window.Paho.MQTT.Client("broker.hivemq.com", 8000, clientId)
+    if (!window.Paho.MQTT) {
+      addLog("❌ Paho.MQTT não encontrado", "system")
+      setConnectionStatus("Erro: Paho.MQTT não disponível")
+      return
+    }
 
-    mqttClient.onConnectionLost = (responseObject) => {
-      if (responseObject.errorCode !== 0) {
+    if (!window.Paho.MQTT.Client) {
+      addLog("❌ Paho.MQTT.Client não encontrado", "system")
+      setConnectionStatus("Erro: Cliente MQTT não disponível")
+      return
+    }
+
+    try {
+      setConnectionStatus("Conectando...")
+      addLog("🔄 Iniciando conexão MQTT...", "system")
+
+      const clientId = `dashboard_${Date.now()}_${Math.random().toString(16).substr(2, 8)}`
+      addLog(`🆔 Cliente ID: ${clientId}`, "system")
+
+      const mqttClient = new window.Paho.MQTT.Client(
+        "broker.hivemq.com", // host
+        8000, // porta WebSocket
+        "/mqtt", // path
+        clientId, // clientId
+      )
+
+      mqttClient.onConnectionLost = (responseObject) => {
+        console.log("🔌 Conexão perdida:", responseObject)
         setIsConnected(false)
-        addLog(`Conexão perdida: ${responseObject.errorMessage}`, "system")
+        setClient(null)
+        setConnectionStatus("Conexão perdida. Tentando reconectar...")
+        addLog(`🔌 Conexão perdida: ${responseObject.errorMessage || "Motivo desconhecido"}`, "system")
+
+        // Tentar reconectar após 5 segundos
+        setTimeout(() => {
+          if (!isConnected) {
+            addLog("🔄 Tentando reconectar...", "system")
+            connectMQTT()
+          }
+        }, 5000)
       }
-    }
 
-    mqttClient.onMessageArrived = (message) => {
-      const topic = message.destinationName
-      const payload = message.payloadString
-
-      addLog(`${topic}: ${payload}`, "received")
-
-      // Atualizar estados baseado nas mensagens recebidas
-      if (topic.includes("/status")) {
+      mqttClient.onMessageArrived = (message) => {
+        const topic = message.destinationName
+        const payload = message.payloadString
+        console.log("📨 Mensagem recebida:", topic, payload)
+        addLog(`📨 ${topic}: ${payload}`, "received")
         updateDeviceState(topic, payload)
-      } else if (topic === "casa/sala/temperatura") {
-        setSensorData((prev) => ({ ...prev, temperatura: Number.parseFloat(payload) }))
-      } else if (topic === "casa/sala/umidade") {
-        setSensorData((prev) => ({ ...prev, umidade: Number.parseFloat(payload) }))
       }
+
+      const connectOptions = {
+        timeout: 30, // Aumentado para 30 segundos
+        keepAliveInterval: 30, // Reduzido para 30 segundos
+        cleanSession: true,
+        useSSL: false, // Desabilitado SSL para porta 8000
+        onSuccess: () => {
+          console.log("✅ Conectado ao MQTT")
+          setIsConnected(true)
+          setClient(mqttClient)
+          setConnectionStatus("Conectado")
+          addLog("✅ Conectado ao broker MQTT via WebSocket", "system")
+
+          // Subscrever aos tópicos
+          try {
+            mqttClient.subscribe("casa/#", {
+              qos: 0,
+              onSuccess: () => {
+                addLog("📡 Subscrito aos tópicos casa/#", "system")
+              },
+              onFailure: (error) => {
+                addLog(`❌ Erro ao subscrever: ${error.errorMessage}`, "system")
+              },
+            })
+          } catch (subError) {
+            addLog(`❌ Erro na subscrição: ${subError.message}`, "system")
+          }
+        },
+        onFailure: (error) => {
+          console.error("❌ Falha na conexão:", error)
+          setIsConnected(false)
+          setClient(null)
+          setConnectionStatus("Falha na conexão")
+          addLog(`❌ Erro na conexão: ${error.errorMessage || error.message || "Erro desconhecido"}`, "system")
+
+          setTimeout(() => {
+            addLog("🔄 Tentando broker alternativo...", "system")
+            tryAlternativeBroker()
+          }, 3000)
+        },
+      }
+
+      addLog("🌐 Conectando ao broker.hivemq.com:8000 (WebSocket sem SSL)...", "system")
+      mqttClient.connect(connectOptions)
+    } catch (error) {
+      console.error("💥 Erro crítico:", error)
+      addLog(`💥 Erro crítico ao conectar: ${error.message}`, "system")
+      setConnectionStatus("Erro crítico de conexão")
+
+      // Tentar broker alternativo após erro crítico
+      setTimeout(() => {
+        addLog("🔄 Tentativa com broker alternativo após erro crítico...", "system")
+        tryAlternativeBroker()
+      }, 5000)
+    }
+  }, [addLog, isConnected])
+
+  const tryAlternativeBroker = useCallback(() => {
+    if (!window.Paho || !window.Paho.MQTT) {
+      addLog("❌ Paho MQTT não disponível para broker alternativo", "system")
+      return
     }
 
-    mqttClient.connect({
-      onSuccess: () => {
-        setIsConnected(true)
-        setClient(mqttClient)
-        addLog("Conectado ao broker MQTT", "system")
+    try {
+      setConnectionStatus("Tentando broker alternativo...")
+      addLog("🔄 Tentando broker alternativo test.mosquitto.org...", "system")
 
-        // Subscrever aos tópicos
-        mqttClient.subscribe("casa/#")
-        addLog("Subscrito aos tópicos casa/#", "system")
-      },
-      onFailure: (error) => {
-        addLog(`Falha na conexão: ${error.errorMessage}`, "system")
-      },
-    })
-  }, [addLog, mqttLoaded])
+      const clientId = `dashboard_alt_${Date.now()}_${Math.random().toString(16).substr(2, 8)}`
 
-  // Desconectar do MQTT
-  const disconnectMQTT = useCallback(() => {
-    if (client && isConnected) {
-      client.disconnect()
-      setIsConnected(false)
-      setClient(null)
-      addLog("Desconectado do broker MQTT", "system")
+      const mqttClient = new window.Paho.MQTT.Client(
+        "test.mosquitto.org", // broker alternativo
+        8080, // porta WebSocket alternativa
+        "/mqtt", // path
+        clientId,
+      )
+
+      mqttClient.onConnectionLost = (responseObject) => {
+        console.log("🔌 Conexão perdida (broker alternativo):", responseObject)
+        setIsConnected(false)
+        setClient(null)
+        setConnectionStatus("Conexão perdida. Voltando ao broker principal...")
+        addLog(
+          `🔌 Conexão perdida no broker alternativo: ${responseObject.errorMessage || "Motivo desconhecido"}`,
+          "system",
+        )
+
+        // Voltar ao broker principal após 10 segundos
+        setTimeout(() => {
+          addLog("🔄 Voltando ao broker principal...", "system")
+          connectMQTT()
+        }, 10000)
+      }
+
+      mqttClient.onMessageArrived = (message) => {
+        const topic = message.destinationName
+        const payload = message.payloadString
+        console.log("📨 Mensagem recebida (broker alternativo):", topic, payload)
+        addLog(`📨 ${topic}: ${payload}`, "received")
+        updateDeviceState(topic, payload)
+      }
+
+      const connectOptions = {
+        timeout: 20,
+        keepAliveInterval: 45,
+        cleanSession: true,
+        useSSL: false,
+        onSuccess: () => {
+          console.log("✅ Conectado ao broker alternativo")
+          setIsConnected(true)
+          setClient(mqttClient)
+          setConnectionStatus("Conectado (broker alternativo)")
+          addLog("✅ Conectado ao broker alternativo test.mosquitto.org", "system")
+
+          // Subscrever aos tópicos
+          mqttClient.subscribe("casa/#", {
+            qos: 0,
+            onSuccess: () => {
+              addLog("📡 Subscrito aos tópicos casa/# (broker alternativo)", "system")
+            },
+            onFailure: (error) => {
+              addLog(`❌ Erro ao subscrever no broker alternativo: ${error.errorMessage}`, "system")
+            },
+          })
+        },
+        onFailure: (error) => {
+          console.error("❌ Falha no broker alternativo:", error)
+          setIsConnected(false)
+          setClient(null)
+          setConnectionStatus("Falha em todos os brokers")
+          addLog(`❌ Falha no broker alternativo: ${error.errorMessage || "Erro desconhecido"}`, "system")
+
+          // Tentar novamente o broker principal após 15 segundos
+          setTimeout(() => {
+            addLog("🔄 Tentando novamente o broker principal...", "system")
+            connectMQTT()
+          }, 15000)
+        },
+      }
+
+      mqttClient.connect(connectOptions)
+    } catch (error) {
+      console.error("💥 Erro no broker alternativo:", error)
+      addLog(`💥 Erro no broker alternativo: ${error.message}`, "system")
+
+      // Voltar ao broker principal
+      setTimeout(() => {
+        addLog("🔄 Voltando ao broker principal após erro...", "system")
+        connectMQTT()
+      }, 10000)
     }
-  }, [client, isConnected, addLog])
+  }, [addLog, connectMQTT])
 
-  // Atualizar estado do dispositivo baseado na mensagem recebida
   const updateDeviceState = (topic, payload) => {
-    if (topic === "casa/garagem/luz/status") {
+    // Sensores
+    if (topic === "casa/sala/temperatura") {
+      setSensorData((prev) => ({ ...prev, temperatura: Number.parseFloat(payload) || 0 }))
+    } else if (topic === "casa/sala/umidade") {
+      setSensorData((prev) => ({ ...prev, umidade: Number.parseFloat(payload) || 0 }))
+    }
+    // Estados dos dispositivos (tópicos com /status)
+    else if (topic === "casa/garagem/luz/status") {
       setDeviceStates((prev) => ({ ...prev, luzGaragem: payload === "ON" }))
     } else if (topic === "casa/garagem/portao/social/status") {
       setDeviceStates((prev) => ({ ...prev, portaoSocial: payload }))
@@ -146,25 +361,58 @@ function App() {
 
   const sendCommand = useCallback(
     (topic, payload) => {
-      if (client && isConnected && window.Paho) {
-        const message = new window.Paho.MQTT.Message(payload)
-        message.destinationName = topic
-        client.send(message)
-        addLog(`${topic}: ${payload}`, "sent")
+      if (client && isConnected) {
+        try {
+          const message = new window.Paho.MQTT.Message(payload)
+          message.destinationName = topic
+          message.qos = 0
+          message.retained = false
+
+          client.send(message)
+          addLog(`📤 Enviado -> ${topic}: ${payload}`, "sent")
+        } catch (error) {
+          addLog(`❌ Erro ao enviar -> ${topic}: ${error.message}`, "system")
+        }
+      } else {
+        addLog("❌ Cliente MQTT não conectado", "system")
       }
     },
     [client, isConnected, addLog],
   )
 
+  // Funções de controle dos dispositivos
+  const controlGaragemLuz = useCallback((command) => sendCommand("casa/garagem/luz", command), [sendCommand])
+  const controlGaragemPortaoSocial = useCallback(
+    (command) => sendCommand("casa/garagem/portao/social", command),
+    [sendCommand],
+  )
+  const controlGaragemPortaoBasculante = useCallback(
+    (command) => sendCommand("casa/garagem/portao/basculante", command),
+    [sendCommand],
+  )
+  const controlSalaLuz = useCallback((command) => sendCommand("casa/sala/luz", command), [sendCommand])
+  const controlSalaAr = useCallback((command) => sendCommand("casa/sala/ar", command), [sendCommand])
+  const controlSalaUmidificador = useCallback(
+    (command) => sendCommand("casa/sala/umidificador", command),
+    [sendCommand],
+  )
+  const controlQuartoLuz = useCallback((command) => sendCommand("casa/quarto/luz", command), [sendCommand])
+  const controlQuartoTomada = useCallback((command) => sendCommand("casa/quarto/tomada", command), [sendCommand])
+  const controlQuartoCortina = useCallback((command) => sendCommand("casa/quarto/cortina", command), [sendCommand])
+
   // Componente de controle de dispositivo
   const DeviceControl = ({ title, status, onCommand, type = "switch" }) => {
+    const [sending, setSending] = useState(false)
+
+    const handleCommand = async (cmd) => {
+      setSending(true)
+      onCommand(cmd)
+      setTimeout(() => setSending(false), 800)
+    }
+
     const getStatusColor = () => {
-      if (type === "door") {
-        return status === "ABERTO" ? "status-on" : "status-off"
-      }
-      if (type === "curtain") {
-        return status === "IDLE" ? "status-off" : "status-on"
-      }
+      if (type === "door") return status === "ABERTO" ? "status-on" : "status-off"
+      if (type === "curtain") return status === "IDLE" ? "status-off" : "status-on"
       return status ? "status-on" : "status-off"
     }
 
@@ -180,35 +428,60 @@ function App() {
           <h6 className="card-title">
             <span className={`status-indicator ${getStatusColor()}`}></span>
             {title}
+            {sending && <span className="spinner-border spinner-border-sm ms-2" role="status"></span>}
           </h6>
           <p className="card-text small text-muted">Status: {getStatusText()}</p>
           <div className="btn-group btn-group-sm" role="group">
             {type === "door" && (
               <>
-                <button className="btn btn-outline-success" onClick={() => onCommand("ABRIR")} disabled={!isConnected}>
+                <button
+                  className="btn btn-outline-success"
+                  onClick={() => handleCommand("ABRIR")}
+                  disabled={!isConnected || sending}
+                >
                   Abrir
                 </button>
-                <button className="btn btn-outline-danger" onClick={() => onCommand("FECHAR")} disabled={!isConnected}>
+                <button
+                  className="btn btn-outline-danger"
+                  onClick={() => handleCommand("FECHAR")}
+                  disabled={!isConnected || sending}
+                >
                   Fechar
                 </button>
               </>
             )}
             {type === "curtain" && (
               <>
-                <button className="btn btn-outline-success" onClick={() => onCommand("ABRIR")} disabled={!isConnected}>
+                <button
+                  className="btn btn-outline-success"
+                  onClick={() => handleCommand("ABRIR")}
+                  disabled={!isConnected || sending}
+                >
                   Abrir
                 </button>
-                <button className="btn btn-outline-danger" onClick={() => onCommand("FECHAR")} disabled={!isConnected}>
+                <button
+                  className="btn btn-outline-danger"
+                  onClick={() => handleCommand("FECHAR")}
+                  disabled={!isConnected || sending}
+                >
                   Fechar
                 </button>
               </>
             )}
             {type === "switch" && (
               <>
-                <button className="btn btn-outline-success" onClick={() => onCommand("ON")} disabled={!isConnected}>
+                <button
+                  className="btn btn-outline-success"
+                  onClick={() => handleCommand("ON")}
+                  disabled={!isConnected || sending}
+                >
                   Ligar
                 </button>
-                <button className="btn btn-outline-danger" onClick={() => onCommand("OFF")} disabled={!isConnected}>
+                <button
+                  className="btn btn-outline-danger"
+                  onClick={() => handleCommand("OFF")}
+                  disabled={!isConnected || sending}
+                >
                   Desligar
                 </button>
               </>
@@ -223,81 +496,7 @@ function App() {
     <>
       <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
 
-      <style jsx>{`
-        body {
-          background-color: #f8f9fa;
-        }
-
-        .status-indicator {
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
-          display: inline-block;
-          margin-right: 8px;
-        }
-
-        .status-connected {
-          background-color: #28a745;
-        }
-
-        .status-disconnected {
-          background-color: #dc3545;
-        }
-
-        .status-on {
-          background-color: #28a745;
-        }
-
-        .status-off {
-          background-color: #6c757d;
-        }
-
-        .sensor-card {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          border: none;
-        }
-
-        .device-card {
-          transition: transform 0.2s;
-        }
-
-        .device-card:hover {
-          transform: translateY(-2px);
-        }
-
-        .log-container {
-          max-height: 300px;
-          overflow-y: auto;
-          background-color: #f8f9fa;
-          border: 1px solid #dee2e6;
-          border-radius: 0.375rem;
-          padding: 1rem;
-        }
-
-        .log-entry {
-          font-family: "Courier New", monospace;
-          font-size: 0.875rem;
-          margin-bottom: 0.25rem;
-          padding: 0.25rem;
-          border-radius: 0.25rem;
-        }
-
-        .log-received {
-          background-color: #d1ecf1;
-          color: #0c5460;
-        }
-
-        .log-sent {
-          background-color: #d4edda;
-          color: #155724;
-        }
-
-        .log-system {
-          background-color: #fff3cd;
-          color: #856404;
-        }
-      `}</style>
+     
 
       <div className="container-fluid py-4">
         {/* Header */}
@@ -305,7 +504,7 @@ function App() {
           <div className="col">
             <h1 className="h3 mb-3">🏠 Smart Home Dashboard</h1>
 
-            {/* Controles de Conexão */}
+            {/* Status de Conexão */}
             <div className="card mb-4">
               <div className="card-body">
                 <h5 className="card-title">
@@ -314,18 +513,14 @@ function App() {
                   ></span>
                   Conexão MQTT
                 </h5>
-                <p className="card-text">
-                  Status: {isConnected ? "Conectado" : "Desconectado"} | Broker: broker.hivemq.com
-                  {!mqttLoaded && " | Carregando biblioteca MQTT..."}
-                </p>
-                <div className="btn-group" role="group">
-                  <button className="btn btn-success" onClick={connectMQTT} disabled={isConnected || !mqttLoaded}>
-                    Conectar
-                  </button>
-                  <button className="btn btn-danger" onClick={disconnectMQTT} disabled={!isConnected}>
-                    Desconectar
-                  </button>
+                <div
+                  className={`connection-status ${isConnected ? "connection-connected" : "connection-disconnected"}`}
+                >
+                  {connectionStatus}
                 </div>
+                <p className="card-text mt-2 mb-0">
+                  <small className="text-muted">Broker: broker.hivemq.com:8000 (WebSocket) | Cliente: Paho MQTT</small>
+                </p>
               </div>
             </div>
           </div>
@@ -334,7 +529,7 @@ function App() {
         {/* Sensores */}
         <div className="row mb-4">
           <div className="col">
-            <h4>📊 Sensores</h4>
+            <h4>📊 Sensores em Tempo Real</h4>
           </div>
         </div>
         <div className="row mb-4">
@@ -369,21 +564,17 @@ function App() {
           {/* Garagem */}
           <div className="col-lg-4 mb-4">
             <h4>🚗 Garagem</h4>
-            <DeviceControl
-              title="Luz da Garagem"
-              status={deviceStates.luzGaragem}
-              onCommand={(cmd) => sendCommand("casa/garagem/luz", cmd)}
-            />
+            <DeviceControl title="Luz da Garagem" status={deviceStates.luzGaragem} onCommand={controlGaragemLuz} />
             <DeviceControl
               title="Portão Social"
               status={deviceStates.portaoSocial}
-              onCommand={(cmd) => sendCommand("casa/garagem/portao/social", cmd)}
+              onCommand={controlGaragemPortaoSocial}
               type="door"
             />
             <DeviceControl
               title="Portão Basculante"
               status={deviceStates.portaoBasculante}
-              onCommand={(cmd) => sendCommand("casa/garagem/portao/basculante", cmd)}
+              onCommand={controlGaragemPortaoBasculante}
               type="door"
             />
           </div>
@@ -391,40 +582,24 @@ function App() {
           {/* Sala */}
           <div className="col-lg-4 mb-4">
             <h4>🛋️ Sala de Estar</h4>
-            <DeviceControl
-              title="Luz da Sala"
-              status={deviceStates.luzSala}
-              onCommand={(cmd) => sendCommand("casa/sala/luz", cmd)}
-            />
-            <DeviceControl
-              title="Ar-condicionado"
-              status={deviceStates.arCondicionado}
-              onCommand={(cmd) => sendCommand("casa/sala/ar", cmd)}
-            />
+            <DeviceControl title="Luz da Sala" status={deviceStates.luzSala} onCommand={controlSalaLuz} />
+            <DeviceControl title="Ar-condicionado" status={deviceStates.arCondicionado} onCommand={controlSalaAr} />
             <DeviceControl
               title="Umidificador"
               status={deviceStates.umidificador}
-              onCommand={(cmd) => sendCommand("casa/sala/umidificador", cmd)}
+              onCommand={controlSalaUmidificador}
             />
           </div>
 
           {/* Quarto */}
           <div className="col-lg-4 mb-4">
             <h4>🛏️ Quarto</h4>
-            <DeviceControl
-              title="Luz do Quarto"
-              status={deviceStates.luzQuarto}
-              onCommand={(cmd) => sendCommand("casa/quarto/luz", cmd)}
-            />
-            <DeviceControl
-              title="Tomada Inteligente"
-              status={deviceStates.tomada}
-              onCommand={(cmd) => sendCommand("casa/quarto/tomada", cmd)}
-            />
+            <DeviceControl title="Luz do Quarto" status={deviceStates.luzQuarto} onCommand={controlQuartoLuz} />
+            <DeviceControl title="Tomada Inteligente" status={deviceStates.tomada} onCommand={controlQuartoTomada} />
             <DeviceControl
               title="Cortina"
               status={deviceStates.cortina}
-              onCommand={(cmd) => sendCommand("casa/quarto/cortina", cmd)}
+              onCommand={controlQuartoCortina}
               type="curtain"
             />
           </div>
@@ -436,7 +611,7 @@ function App() {
             <h4>📝 Histórico de Mensagens MQTT</h4>
             <div className="log-container">
               {logs.length === 0 ? (
-                <p className="text-muted">Nenhuma mensagem ainda...</p>
+                <p className="text-muted">Aguardando mensagens MQTT...</p>
               ) : (
                 logs.map((log) => (
                   <div key={log.id} className={`log-entry log-${log.type}`}>
