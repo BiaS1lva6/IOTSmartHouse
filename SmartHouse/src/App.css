@@ -1,145 +1,213 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+/* Estilos para tema claro */
+.light-theme {
+  background-color: #f8f9fa;
+  color: #212529;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+/* Estilos para tema escuro */
+.dark-theme {
+  background-color: #1a1a1a;
+  color: #ffffff;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.dark-theme .card {
+  background-color: #2d2d2d;
+  border-color: #404040;
+  color: #ffffff;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.dark-theme .card-body {
+  color: #ffffff;
 }
 
-.card {
-  padding: 2em;
+.dark-theme .text-muted {
+  color: #adb5bd !important;
 }
 
-.read-the-docs {
-  color: #888;
+.dark-theme .sensor-card {
+  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
 }
 
+.dark-theme .log-container {
+  background-color: #2d2d2d;
+  border-color: #404040;
+  color: #ffffff;
+}
 
-  body {
-    background-color: #f8f9fa;
-  }
+.dark-theme .log-received {
+  background-color: #1e3a3a;
+  color: #4fd1c7;
+  border-left-color: #17a2b8;
+}
 
-  .status-indicator {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    display: inline-block;
-    margin-right: 8px;
-  }
+.dark-theme .log-sent {
+  background-color: #1e3a1e;
+  color: #68d391;
+  border-left-color: #28a745;
+}
 
-  .status-connected {
-    background-color: #28a745;
-    box-shadow: 0 0 8px rgba(40, 167, 69, 0.6);
-  }
+.dark-theme .log-system {
+  background-color: #3a3a1e;
+  color: #f6e05e;
+  border-left-color: #ffc107;
+}
 
-  .status-disconnected {
-    background-color: #dc3545;
-    box-shadow: 0 0 8px rgba(220, 53, 69, 0.6);
-  }
+.dark-theme .connection-connected {
+  background-color: #1e3a1e;
+  color: #68d391;
+  border-color: #28a745;
+}
 
-  .status-on {
-    background-color: #28a745;
-  }
+.dark-theme .connection-disconnected {
+  background-color: #3a1e1e;
+  color: #fc8181;
+  border-color: #dc3545;
+}
 
-  .status-off {
-    background-color: #6c757d;
-  }
+.dark-theme .btn-outline-success {
+  color: #28a745;
+  border-color: #28a745;
+}
 
-  .sensor-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  }
+.dark-theme .btn-outline-success:hover {
+  background-color: #28a745;
+  color: #ffffff;
+}
 
-  .device-card {
-    transition: all 0.3s ease;
-    border: 1px solid #e9ecef;
-  }
+.dark-theme .btn-outline-danger {
+  color: #dc3545;
+  border-color: #dc3545;
+}
 
-  .device-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  }
+.dark-theme .btn-outline-danger:hover {
+  background-color: #dc3545;
+  color: #ffffff;
+}
 
-  .log-container {
-    max-height: 350px;
-    overflow-y: auto;
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 0.375rem;
-    padding: 1rem;
-  }
+/* Botão de toggle do tema */
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
 
-  .log-entry {
-    font-family: "Courier New", monospace;
-    font-size: 0.875rem;
-    margin-bottom: 0.25rem;
-    padding: 0.5rem;
-    border-radius: 0.25rem;
-    border-left: 3px solid transparent;
-  }
+.light-theme .theme-toggle {
+  background-color: #ffc107;
+  color: #ffc107;
+}
 
-  .log-received {
-    background-color: #d1ecf1;
-    color: #0c5460;
-    border-left-color: #17a2b8;
-  }
+.dark-theme .theme-toggle {
+  background-color: #343a40;
+  color: #343a40;
+}
 
-  .log-sent {
-    background-color: #d4edda;
-    color: #155724;
-    border-left-color: #28a745;
-  }
+.theme-toggle:hover {
+  transform: scale(1.1);
+}
 
-  .log-system {
-    background-color: #fff3cd;
-    color: #856404;
-    border-left-color: #ffc107;
-  }
+.status-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+}
 
-  .connection-status {
-    font-weight: 600;
-    padding: 0.5rem 1rem;
-    border-radius: 0.375rem;
-    display: inline-block;
-  }
+.status-connected {
+  background-color: #28a745;
+  box-shadow: 0 0 8px rgba(40, 167, 69, 0.6);
+}
 
-  .connection-connected {
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-  }
+.status-disconnected {
+  background-color: #dc3545;
+  box-shadow: 0 0 8px rgba(220, 53, 69, 0.6);
+}
 
-  .connection-disconnected {
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-  }
+.status-on {
+  background-color: #28a745;
+}
+
+.status-off {
+  background-color: #6c757d;
+}
+
+.sensor-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.device-card {
+  transition: all 0.3s ease;
+  border: 1px solid #e9ecef;
+}
+
+.device-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.log-container {
+  max-height: 350px;
+  overflow-y: auto;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  padding: 1rem;
+}
+
+.log-entry {
+  font-family: "Courier New", monospace;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  border-left: 3px solid transparent;
+}
+
+.log-received {
+  background-color: #d1ecf1;
+  color: #0c5460;
+  border-left-color: #17a2b8;
+}
+
+.log-sent {
+  background-color: #d4edda;
+  color: #155724;
+  border-left-color: #28a745;
+}
+
+.log-system {
+  background-color: #fff3cd;
+  color: #856404;
+  border-left-color: #ffc107;
+}
+
+.connection-status {
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  display: inline-block;
+}
+
+.connection-connected {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.connection-disconnected {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}

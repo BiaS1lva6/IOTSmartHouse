@@ -1,6 +1,16 @@
 import { useState, useCallback, useEffect } from "react"
+import "./App.css"
 
 function App() {
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    // Verificar preferência salva no localStorage ou preferência do sistema
+    const savedTheme = localStorage.getItem("theme")
+    if (savedTheme) {
+      return savedTheme === "dark"
+    }
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+  })
+
   // Estados de conexão
   const [isConnected, setIsConnected] = useState(false)
   const [client, setClient] = useState(null)
@@ -31,6 +41,16 @@ function App() {
     tomada: false,
     cortina: "IDLE",
   })
+
+  const toggleTheme = () => {
+    const newTheme = !isDarkMode
+    setIsDarkMode(newTheme)
+    localStorage.setItem("theme", newTheme ? "dark" : "light")
+  }
+
+  useEffect(() => {
+    document.body.className = isDarkMode ? "dark-theme" : "light-theme"
+  }, [isDarkMode])
 
   useEffect(() => {
     // Carregar Paho MQTT
@@ -496,7 +516,9 @@ function App() {
     <>
       <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
 
-     
+      <button className="theme-toggle" onClick={toggleTheme} title={isDarkMode ? "Modo Claro" : "Modo Escuro"}>
+        {isDarkMode ? "🌙" : "☀️"}
+      </button>
 
       <div className="container-fluid py-4">
         {/* Header */}
