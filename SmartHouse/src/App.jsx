@@ -42,6 +42,8 @@ function App() {
     cortina: "IDLE",
   })
 
+  const [commandQueue, setCommandQueue] = useState(new Map())
+
   const toggleTheme = () => {
     const newTheme = !isDarkMode
     setIsDarkMode(newTheme)
@@ -165,7 +167,7 @@ function App() {
       setConnectionStatus("Conectando...")
       addLog("🔄 Iniciando conexão MQTT...", "system")
 
-      const clientId = `dashboard_${Date.now()}_${Math.random().toString(16).substr(2, 8)}`
+      const clientId = "DashboardBiaSenai790Jahu"
       addLog(`🆔 Cliente ID: ${clientId}`, "system")
 
       const mqttClient = new window.Paho.MQTT.Client(
@@ -211,12 +213,11 @@ function App() {
           setConnectionStatus("Conectado")
           addLog("✅ Conectado ao broker MQTT via WebSocket", "system")
 
-          // Subscrever aos tópicos
           try {
-            mqttClient.subscribe("casa/#", {
+            mqttClient.subscribe("BLhouse3604/#", {
               qos: 0,
               onSuccess: () => {
-                addLog("📡 Subscrito aos tópicos casa/#", "system")
+                addLog("📡 Subscrito aos tópicos BLhouse3604/#", "system")
               },
               onFailure: (error) => {
                 addLog(`❌ Erro ao subscrever: ${error.errorMessage}`, "system")
@@ -265,7 +266,7 @@ function App() {
       setConnectionStatus("Tentando broker alternativo...")
       addLog("🔄 Tentando broker alternativo test.mosquitto.org...", "system")
 
-      const clientId = `dashboard_alt_${Date.now()}_${Math.random().toString(16).substr(2, 8)}`
+      const clientId = "DashboardBiaSenai790JahuAlt"
 
       const mqttClient = new window.Paho.MQTT.Client(
         "test.mosquitto.org", // broker alternativo
@@ -311,11 +312,10 @@ function App() {
           setConnectionStatus("Conectado (broker alternativo)")
           addLog("✅ Conectado ao broker alternativo test.mosquitto.org", "system")
 
-          // Subscrever aos tópicos
-          mqttClient.subscribe("casa/#", {
+          mqttClient.subscribe("BLhouse3604/#", {
             qos: 0,
             onSuccess: () => {
-              addLog("📡 Subscrito aos tópicos casa/# (broker alternativo)", "system")
+              addLog("📡 Subscrito aos tópicos BLhouse3604/# (broker alternativo)", "system")
             },
             onFailure: (error) => {
               addLog(`❌ Erro ao subscrever no broker alternativo: ${error.errorMessage}`, "system")
@@ -337,6 +337,7 @@ function App() {
         },
       }
 
+      addLog("🌐 Conectando ao broker.hivemq.com:8000 (WebSocket sem SSL)...", "system")
       mqttClient.connect(connectOptions)
     } catch (error) {
       console.error("💥 Erro no broker alternativo:", error)
@@ -351,30 +352,39 @@ function App() {
   }, [addLog, connectMQTT])
 
   const updateDeviceState = (topic, payload) => {
+    const commandKey = topic.replace("/status", "")
+    if (commandQueue.has(commandKey)) {
+      const queuedCommand = commandQueue.get(commandKey)
+      if (queuedCommand.payload === payload && Date.now() - queuedCommand.timestamp < 2000) {
+        // Ignorar se é o mesmo comando enviado há menos de 2 segundos
+        return
+      }
+    }
+
     // Sensores
-    if (topic === "casa/sala/temperatura") {
+    if (topic === "BLhouse3604/sala/temperatura") {
       setSensorData((prev) => ({ ...prev, temperatura: Number.parseFloat(payload) || 0 }))
-    } else if (topic === "casa/sala/umidade") {
+    } else if (topic === "BLhouse3604/sala/umidade") {
       setSensorData((prev) => ({ ...prev, umidade: Number.parseFloat(payload) || 0 }))
     }
     // Estados dos dispositivos (tópicos com /status)
-    else if (topic === "casa/garagem/luz/status") {
+    else if (topic === "BLhouse3604/garagem/luz/status") {
       setDeviceStates((prev) => ({ ...prev, luzGaragem: payload === "ON" }))
-    } else if (topic === "casa/garagem/portao/social/status") {
+    } else if (topic === "BLhouse3604/garagem/portao/social/status") {
       setDeviceStates((prev) => ({ ...prev, portaoSocial: payload }))
-    } else if (topic === "casa/garagem/portao/basculante/status") {
+    } else if (topic === "BLhouse3604/garagem/portao/basculante/status") {
       setDeviceStates((prev) => ({ ...prev, portaoBasculante: payload }))
-    } else if (topic === "casa/sala/luz/status") {
+    } else if (topic === "BLhouse3604/sala/luz/status") {
       setDeviceStates((prev) => ({ ...prev, luzSala: payload === "ON" }))
-    } else if (topic === "casa/sala/ar/status") {
+    } else if (topic === "BLhouse3604/sala/ar/status") {
       setDeviceStates((prev) => ({ ...prev, arCondicionado: payload === "ON" }))
-    } else if (topic === "casa/sala/umidificador/status") {
+    } else if (topic === "BLhouse3604/sala/umidificador/status") {
       setDeviceStates((prev) => ({ ...prev, umidificador: payload === "ON" }))
-    } else if (topic === "casa/quarto/luz/status") {
+    } else if (topic === "BLhouse3604/quarto/luz/status") {
       setDeviceStates((prev) => ({ ...prev, luzQuarto: payload === "ON" }))
-    } else if (topic === "casa/quarto/tomada/status") {
+    } else if (topic === "BLhouse3604/quarto/tomada/status") {
       setDeviceStates((prev) => ({ ...prev, tomada: payload === "ON" }))
-    } else if (topic === "casa/quarto/cortina/status") {
+    } else if (topic === "BLhouse3604/quarto/cortina/status") {
       setDeviceStates((prev) => ({ ...prev, cortina: payload }))
     }
   }
@@ -382,6 +392,15 @@ function App() {
   const sendCommand = useCallback(
     (topic, payload) => {
       if (client && isConnected) {
+        const now = Date.now()
+        if (commandQueue.has(topic)) {
+          const lastCommand = commandQueue.get(topic)
+          if (now - lastCommand.timestamp < 1000) {
+            addLog(`⏳ Comando ignorado (debounce): ${topic}`, "system")
+            return
+          }
+        }
+
         try {
           const message = new window.Paho.MQTT.Message(payload)
           message.destinationName = topic
@@ -389,6 +408,17 @@ function App() {
           message.retained = false
 
           client.send(message)
+
+          setCommandQueue((prev) => new Map(prev.set(topic, { payload, timestamp: now })))
+
+          setTimeout(() => {
+            setCommandQueue((prev) => {
+              const newQueue = new Map(prev)
+              newQueue.delete(topic)
+              return newQueue
+            })
+          }, 3000)
+
           addLog(`📤 Enviado -> ${topic}: ${payload}`, "sent")
         } catch (error) {
           addLog(`❌ Erro ao enviar -> ${topic}: ${error.message}`, "system")
@@ -397,37 +427,47 @@ function App() {
         addLog("❌ Cliente MQTT não conectado", "system")
       }
     },
-    [client, isConnected, addLog],
+    [client, isConnected, addLog, commandQueue],
   )
 
   // Funções de controle dos dispositivos
-  const controlGaragemLuz = useCallback((command) => sendCommand("casa/garagem/luz", command), [sendCommand])
+  const controlGaragemLuz = useCallback((command) => sendCommand("BLhouse3604/garagem/luz", command), [sendCommand])
   const controlGaragemPortaoSocial = useCallback(
-    (command) => sendCommand("casa/garagem/portao/social", command),
+    (command) => sendCommand("BLhouse3604/garagem/portao/social", command),
     [sendCommand],
   )
   const controlGaragemPortaoBasculante = useCallback(
-    (command) => sendCommand("casa/garagem/portao/basculante", command),
+    (command) => sendCommand("BLhouse3604/garagem/portao/basculante", command),
     [sendCommand],
   )
-  const controlSalaLuz = useCallback((command) => sendCommand("casa/sala/luz", command), [sendCommand])
-  const controlSalaAr = useCallback((command) => sendCommand("casa/sala/ar", command), [sendCommand])
+  const controlSalaLuz = useCallback((command) => sendCommand("BLhouse3604/sala/luz", command), [sendCommand])
+  const controlSalaAr = useCallback((command) => sendCommand("BLhouse3604/sala/ar", command), [sendCommand])
   const controlSalaUmidificador = useCallback(
-    (command) => sendCommand("casa/sala/umidificador", command),
+    (command) => sendCommand("BLhouse3604/sala/umidificador", command),
     [sendCommand],
   )
-  const controlQuartoLuz = useCallback((command) => sendCommand("casa/quarto/luz", command), [sendCommand])
-  const controlQuartoTomada = useCallback((command) => sendCommand("casa/quarto/tomada", command), [sendCommand])
-  const controlQuartoCortina = useCallback((command) => sendCommand("casa/quarto/cortina", command), [sendCommand])
+  const controlQuartoLuz = useCallback((command) => sendCommand("BLhouse3604/quarto/luz", command), [sendCommand])
+  const controlQuartoTomada = useCallback((command) => sendCommand("BLhouse3604/quarto/tomada", command), [sendCommand])
+  const controlQuartoCortina = useCallback(
+    (command) => sendCommand("BLhouse3604/quarto/cortina", command),
+    [sendCommand],
+  )
 
-  // Componente de controle de dispositivo
   const DeviceControl = ({ title, status, onCommand, type = "switch" }) => {
     const [sending, setSending] = useState(false)
+    const [lastCommand, setLastCommand] = useState(null)
 
     const handleCommand = async (cmd) => {
+      if (sending || (lastCommand === cmd && Date.now() - lastCommand?.timestamp < 2000)) {
+        return
+      }
+
       setSending(true)
+      setLastCommand({ cmd, timestamp: Date.now() })
+
       onCommand(cmd)
-      setTimeout(() => setSending(false), 800)
+
+      setTimeout(() => setSending(false), 1500)
     }
 
     const getStatusColor = () => {
@@ -517,7 +557,7 @@ function App() {
       <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
 
       <button className="theme-toggle" onClick={toggleTheme} title={isDarkMode ? "Modo Claro" : "Modo Escuro"}>
-        {isDarkMode ? "🌙" : "☀️"}
+      {isDarkMode ? "🌙" : "☀️"}
       </button>
 
       <div className="container-fluid py-4">
